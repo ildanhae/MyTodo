@@ -52,14 +52,14 @@ def parse_number_or_none(text):
         return None
 
 
-def oz_from_weight(weight):
+def grams_from_weight(weight):
     if not weight or weight.get("value") is None:
         return 0
-    return weight["value"] * 16 if weight.get("unit") == "lb" else weight["value"]
+    return weight["value"] * 1000 if weight.get("unit") == "kg" else weight["value"]
 
 
-def format_weight_oz(total_oz):
-    return f"{total_oz / 16:.2f} lb"
+def format_weight_grams(total_grams):
+    return f"{total_grams / 1000:.2f} kg"
 
 
 def item_details_text(item):
@@ -69,7 +69,7 @@ def item_details_text(item):
         text += (" · " if text else "") + f"${item['price']:.2f}"
     weight = item.get("weight") or {}
     if weight.get("value") is not None:
-        text += (" · " if text else "") + f"{weight['value']:g} {weight.get('unit', 'oz')}"
+        text += (" · " if text else "") + f"{weight['value']:g} {weight.get('unit', 'g')}"
     return text
 
 
@@ -157,8 +157,8 @@ def render_item_edit_form(category, item):
         weight = item.get("weight") or {}
         weight_default = "" if weight.get("value") is None else str(weight["value"])
         weight_text = c4.text_input("Weight", value=weight_default, placeholder="optional")
-        unit_options = ["oz", "lb"]
-        current_unit = weight.get("unit", "oz")
+        unit_options = ["g", "kg"]
+        current_unit = weight.get("unit", "g")
         weight_unit = c5.selectbox(
             "Unit", unit_options, index=unit_options.index(current_unit) if current_unit in unit_options else 0
         )
@@ -194,7 +194,7 @@ def render_add_item_form(category):
         c3, c4, c5 = st.columns(3)
         price_text = c3.text_input("Price ($)", placeholder="optional")
         weight_text = c4.text_input("Weight", placeholder="optional")
-        weight_unit = c5.selectbox("Unit", ["oz", "lb"])
+        weight_unit = c5.selectbox("Unit", ["g", "kg"])
 
         s1, s2 = st.columns(2)
         add_clicked = s1.form_submit_button("Add Item")
@@ -226,6 +226,17 @@ def render_add_item_form(category):
 # ---- Page ----
 
 st.set_page_config(page_title="Backpacking Checklist", page_icon="\U0001f392", layout="centered")
+st.markdown(
+    """
+    <style>
+    .stButton > button {
+        padding: 0.2rem 0.6rem;
+        border-radius: 8px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 st.title("\U0001f392 Backpacking Checklist")
 st.caption("Data autosaves to a local file next to this script — no account or server needed.")
 
@@ -273,11 +284,11 @@ else:
                     st.session_state.editing_category_id = None
                     st.rerun()
             else:
-                action_col1, action_col2, _ = st.columns([1, 1, 4])
-                if action_col1.button("✏️ Rename", key=f"rename_cat_btn_{category['id']}"):
+                action_col1, action_col2, _ = st.columns([1, 1, 10])
+                if action_col1.button("✏️", key=f"rename_cat_btn_{category['id']}", help="Rename category"):
                     st.session_state.editing_category_id = category["id"]
                     st.rerun()
-                if action_col2.button("\U0001f5d1️ Delete", key=f"delete_cat_btn_{category['id']}"):
+                if action_col2.button("🗑️", key=f"delete_cat_btn_{category['id']}", help="Delete category"):
                     confirm_delete_category_dialog(category["id"], category["name"])
 
             if not category["items"]:
@@ -291,7 +302,7 @@ else:
 
             if category["id"] in st.session_state.open_add_item_ids:
                 render_add_item_form(category)
-            elif st.button("+ Add Item", key=f"open_add_item_{category['id']}"):
+            elif st.button("➕", key=f"open_add_item_{category['id']}", help="Add item"):
                 st.session_state.open_add_item_ids.add(category["id"])
                 st.rerun()
 
@@ -299,14 +310,14 @@ else:
 # but placed in a container reserved at the top of the page.
 total_items = 0
 total_packed = 0
-total_oz = 0
+total_grams = 0
 total_price = 0.0
 for category in st.session_state.categories:
     for item in category["items"]:
         total_items += 1
         if item["packed"]:
             total_packed += 1
-        total_oz += oz_from_weight(item.get("weight"))
+        total_grams += grams_from_weight(item.get("weight"))
         if item.get("price") is not None:
             total_price += item["price"]
 
@@ -314,7 +325,7 @@ with summary_container:
     m1, m2, m3, m4, m5 = st.columns([1, 1, 1, 1, 1.4])
     m1.metric("Items", total_items)
     m2.metric("Packed", total_packed)
-    m3.metric("Total Weight", format_weight_oz(total_oz))
+    m3.metric("Total Weight", format_weight_grams(total_grams))
     m4.metric("Total Cost", f"${total_price:.2f}")
     with m5:
         st.write("")
